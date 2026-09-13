@@ -1,0 +1,50 @@
+local stuple = require("stuple")
+local space = require("stuple.space")
+
+local s0 = space.new()
+assert(space.version(s0) == 0)
+assert(space.count(s0) == 0)
+
+local a = stuple.tuple(10, "alice", 30)
+local b = stuple.tuple(20, "bob", 40)
+local c = stuple.tuple(15, "carol", 35)
+
+local tx = space.begin(s0)
+tx = space.tx_put(tx, a)
+tx = space.tx_put(tx, b)
+tx = space.tx_put(tx, c)
+
+local s1, wal1 = space.commit(tx)
+assert(space.version(s1) == 1)
+assert(space.count(s1) == 3)
+assert(space.get(s1, 10) == a)
+assert(space.get(s1, 15) == c)
+assert(space.get(s1, 20) == b)
+assert(space.get(s0, 10) == nil, "old snapshot must remain unchanged")
+assert(space.wal_count(wal1) == 3)
+
+local a2 = stuple.replace(a, 2, "ALICE")
+local s2, wal2 = space.put(s1, a2)
+assert(space.version(s2) == 2)
+assert(space.get(s1, 10) == a)
+assert(space.get(s2, 10) == a2)
+assert(space.wal_count(wal2) == 1)
+
+local record = space.wal_head(wal2)
+assert(record("op") == "replace")
+assert(record("key") == 10)
+assert(record("old_hash") == stuple.hash(a))
+assert(record("new_hash") == stuple.hash(a2))
+
+local s3, wal3 = space.delete(s2, 15)
+assert(space.version(s3) == 3)
+assert(space.count(s3) == 2)
+assert(space.get(s3, 15) == nil)
+assert(space.get(s2, 15) == c)
+assert(space.wal_head(wal3)("op") == "delete")
+
+local s4, wal4 = space.put(s3, space.get(s3, 10))
+assert(s4 == s3)
+assert(space.wal_count(wal4) == 0)
+
+print("stuple space: ok")
