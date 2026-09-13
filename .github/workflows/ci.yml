@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lua ${{ matrix.lua }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lua:
+          - "5.1"
+          - "5.2"
+          - "5.3"
+          - "5.4"
+          - "luajit-2.1"
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: ${{ matrix.lua }}
+      - name: Run tests
+        shell: bash
+        run: |
+          lua tests/test_stuple.lua
+          lua tests/test_space.lua
+
+  syntax:
+    name: Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: "5.4"
+      - name: Compile Lua sources
+        shell: bash
+        run: |
+          luac -p stuple.lua
+          luac -p stuple/space.lua
+          luac -p tests/test_stuple.lua
+          luac -p tests/test_space.lua
